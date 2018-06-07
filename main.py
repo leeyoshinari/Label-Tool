@@ -5,28 +5,34 @@
 # Created:     27/07/2017
 #
 #-------------------------------------------------------------------------------
-from __future__ import division
+from tkinter import messagebox, filedialog
 from tkinter import *
-from tkinter import messagebox, ttk, filedialog
-# from tkinter import ttk
-import numpy as np
 from PIL import Image, ImageTk
-import os
+import numpy as np
+import xml.dom.minidom
+import xml.dom
 import glob
+import os
 
 # colors for the bboxes
-COLORS = ['red', 'blue', 'yellow', 'pink', 'cyan', 'green', 'black']
-CLASSES = ['red', 'blue', 'yellow', 'pink', 'cyan', 'green', 'black']
-# image sizes for the examples
-SIZE = 256, 256
+COLORS = ['red', 'orange', 'cyan', 'green', 'blue', 'purple', 'pink', 'black', 'gray']
+# classes name
+CLASSES = ['aeroplane', 'bicycle', 'bird', 'boat', 'bottle', 'bus',
+           'car', 'cat', 'chair', 'cow', 'diningtable', 'dog', 'horse',
+           'motorbike', 'person', 'pottedplant', 'sheep', 'sofa',
+           'train', 'tvmonitor']
 
+# Some parameters for VOC label
+_POSE = 'Unspecified'
+_TRUNCATED = '0'
+_DIFFICULT = '0'
+_SEGMENTED = '0'
 
-def eventhandler(event):
-    pass
+def event_handler(event):
+    print('s')
 
-class LabelTool():
+class LabelTool:
     def __init__(self, master):
-        # set up the main frame
         self.parent = master
         self.parent.title("LabelTool")
         self.w, self.h =  self.parent.maxsize()
@@ -34,29 +40,25 @@ class LabelTool():
         self.parent.state('zoomed')
         self.frame = Frame(self.parent)
         self.frame.pack(fill=BOTH, expand=1)
-        #self.parent.resizable(width = 1360, height = 768)
-
-        # initialize global state
-        self.imageDir = ''
-        self.imageList= []
-        self.egDir = ''
-        self.egList = []
-        self.outDir = ''
-        self.cur = 0
-        self.total = 0
-        self.category = 0
-        self.del_num = 0
-        self.imagename = ''
-        self.labelfilename = ''
-        self.labelfilename1 = ''
-        self.tkimg = None
 
         # initialize mouse state
-        self.STATE = {}
-        self.STATE['click'] = 0
-        self.STATE['x'], self.STATE['y'] = 0, 0
+        self.STATE = {'click': 0, 'x': 0, 'y': 0}
 
-        # reference to bbox
+        # initialize global state
+        self.imageList = []     # The list for images path.
+        self.outDir = './Labels'    # The path of labelled annotations.
+        self.cur = 0    # The index of images path.
+        self.total = 0     # The total images.
+        self.del_num = 0    # The number of deleted images.
+        self.image_name = ''    # The name of precessing image.
+        self.label_filename = ''    # The name of .xml.
+        self.label_filename1 = ''   # The name of .txt, it's used to check annotations.
+        self.tkimg = None
+        self.img = None
+        self.width = 0
+        self.height = 0
+        self.depth = 0
+        self.color_map = COLORS[0]
         self.class_name = None
         self.classes_name = []
         self.bboxIdList = []
@@ -65,15 +67,21 @@ class LabelTool():
         self.bboxList = []
         self.hl = None
         self.vl = None
+        self.x1 = 0
+        self.y1 = 0
+        self.xx1 = 0
+        self.x2 = 0
+        self.yy1 = 0
+        self.y2 = 0
 
         # ----------------- GUI stuff ---------------------
         # dir entry & load
-        radvar = IntVar()
+        radio_var = IntVar()
         self.label = Label(self.frame, text = 'Label Type:')
         self.label.place(x = 10, y = 10, width = 70, height = 16)
-        self.rad = Radiobutton(self.frame, text = 'rectangle', variable = radvar, value = 1, command = None)
+        self.rad = Radiobutton(self.frame, text = 'rectangle', variable = radio_var, value = 1, command = None)
         self.rad.place(x = 90, y = 10, width = 80, height = 16)
-        self.rad1 = Radiobutton(self.frame, text = 'line', variable = radvar, value = 2, command = None)
+        self.rad1 = Radiobutton(self.frame, text = 'line', variable = radio_var, value = 2, command = None)
         self.rad1.place(x = 180, y = 10, width = 80, height = 16)
 
         self.label1 = Label(self.frame, text = 'Image Path:')
@@ -103,11 +111,11 @@ class LabelTool():
         self.button2.place(x  =270, y = 220, width = 75, height = 20)
         self.button2.config(state='active')
         self.button3 = Button(self.frame, text='<< Prev', state = 'disabled', command=self.prevImage)
-        self.button3.bind('w', eventhandler)
+        #self.button3.bind('<Up>', event_handler)
         self.button3.place(x = 10, y = 250, width = 65, height = 20)
         self.button3.config(state='active')
         self.button4 = Button(self.frame, text='Next >>', state = 'disabled', command=self.nextImage)
-        self.button4.bind_all('s', eventhandler)
+        self.button4.bind_all("s", event_handler)
         self.button4.config(state='active')
         self.button4.place(x = 90, y = 250, width = 65, height = 20)
         self.button5 = Button(self.frame, text="Delete Image", state = 'disabled', command=self.Delete_image)
@@ -153,7 +161,6 @@ class LabelTool():
         self.total = len(self.imageList)
         print('The number of images is %d ' % self.total)
 
-        self.outDir = './Labels'
         if not os.path.exists(self.outDir):
             os.mkdir(self.outDir)
         if not os.path.exists('./label'):
@@ -163,11 +170,11 @@ class LabelTool():
 
     def loadImage(self):
         # load image
-        imagepath = self.imageList[self.cur - 1]
+        image_path = self.imageList[self.cur - 1]
         entry = StringVar()
-        entry.set(imagepath)
+        entry.set(image_path)
         self.label2.config(textvariable = entry)
-        self.img = Image.open(imagepath)
+        self.img = Image.open(image_path)
         size_img = np.shape(self.img)
         self.width = size_img[1]
         self.height = size_img[0]
@@ -181,47 +188,40 @@ class LabelTool():
 
         # load labels
         self.clearBBox()
-        self.imagename = os.path.split(imagepath)[-1].split('.')[0]
-        labelname = self.imagename + '.xml'
-        self.labelfilename = os.path.join(self.outDir, labelname)
-        labelname1 = self.imagename + '.txt'
-        self.labelfilename1 = os.path.join('./label', labelname1)
-        if os.path.exists(self.labelfilename1):
+        self.image_name = os.path.split(image_path)[-1].split('.')[0]
+        label_name = self.image_name + '.xml'
+        self.label_filename = os.path.join(self.outDir, label_name)
+        label_name1 = self.image_name + '.txt'
+        self.label_filename1 = os.path.join('./label', label_name1)
+        if os.path.exists(self.label_filename1):
             self.classes_name = []
-            with open(self.labelfilename1) as f:
+            with open(self.label_filename1) as f:
                 for (i, line) in enumerate(f):
                     if i == 0:
                         continue
                     tmp = [t.strip() for t in line.split()]
                     self.bboxList.append(tuple([int(tmp[0]), int(tmp[1]), int(tmp[2]), int(tmp[3])]))
                     self.classes_name.append(tmp[4])
-                    tmpId = self.mainPanel.create_rectangle(int(tmp[0]), int(tmp[1]), int(tmp[2]), int(tmp[3]), width = 2,
-                                                            outline = COLORS[(len(self.bboxList)-1) % len(COLORS)])
-                    classId = self.mainPanel.create_text(int(tmp[0])+5, int(tmp[1])+8, text = tmp[4], anchor = W, fill = COLORS[(len(self.bboxList)-1) % len(COLORS)])
+                    x = float(tmp[0]) * self.canvas_w / self.width
+                    y = float(tmp[1]) * self.canvas_h / self.height
+                    xx = float(tmp[2]) * self.canvas_w / self.width
+                    yy = float(tmp[3]) * self.canvas_h / self.height
+                    color = COLORS[(len(self.bboxList)-1) % len(COLORS)]
+                    tmpId = self.mainPanel.create_rectangle(int(x), int(y), int(xx), int(yy), width = 2, outline = color)
+                    classId = self.mainPanel.create_text(int(x)+5, int(y)+8, text = tmp[4], anchor = W, fill = color)
                     self.bboxIdList.append(tmpId)
                     self.classIdList.append(classId)
                     self.listbox.insert(END, '(%s, %s) -> (%s, %s) -> %s' %(tmp[0], tmp[1], tmp[2], tmp[3], tmp[4]))
-                    self.listbox.itemconfig(len(self.bboxIdList) - 1, fg = COLORS[(len(self.bboxIdList) - 1) % len(COLORS)])
+                    self.listbox.itemconfig(len(self.bboxIdList) - 1, fg = color)
 
     def saveImage(self):
         if self.classes_name:
-            size_img = np.shape(self.img)
-            width = size_img[1]
-            height = size_img[0]
-            depth = size_img[2]
-            with open(self.labelfilename, 'w') as f:
-                f.write('<annotation>\n\t<folder>VOC2007</folder>\n\t<filename>%s</filename>\n<source>\n\t\t<database>The VOC2007 Database</database>\n\t\t'
-                        '<annotation>PASCAL VOC2007</annotation>\n\t\t<image>flickr</image>\n\t\t<flickrid>325991873</flickrid>\n\t</source>\n\t'
-                        '<owner>\n\t\t<flickrid>archintent louisville</flickrid>\n\t\t<name>?</name>\n\t</owner>\n\t<size>\n\t\t<width>%d</width>\n\t\t'
-                        '<height>%d</height>\n\t\t<depth>%d</depth>\n\t</size>\n\t<segmented>0</segmented>\n' %(self.imagename+'.jpg', width, height, depth))
+            img_name = self.image_name + '.jpg'
+            shape = [self.width, self.height, self.depth]
+            doc = createXML(img_name, shape, self.classes_name, self.bboxList)
+            writeXMLFile(doc, self.label_filename)
 
-                for i in range(0, len(self.bboxList)):
-                    f.write('\t<object>\n\t\t<name>%s</name>\n\t\t<pose>?</pose>\n\t\t<truncated>0</truncated>\n\t\t<difficult>0</difficult>\n\t\t<bndbox>'
-                            '\n\t\t\t<xmin>%d</xmin>\n\t\t\t<ymin>%d</ymin>\n\t\t\t<xmax>%d</xmax>\n\t\t\t<ymax>%d</ymax>\n\t\t</bndbox>\n\t</object>\n'
-                            %(self.classes_name[i], self.bboxList[i][0], self.bboxList[i][1], self.bboxList[i][2], self.bboxList[i][3]))
-                f.write('</annotation>')
-
-            with open(self.labelfilename1, 'w') as f:
+            with open(self.label_filename1, 'w') as f:
                 num = 0
                 f.write('%d\n' % len(self.bboxList))
                 for bbox in self.bboxList:
@@ -234,17 +234,20 @@ class LabelTool():
         if self.STATE['click'] == 0:
             self.STATE['x'], self.STATE['y'] = event.x, event.y
         else:
-            self.x1, self.x2 = min(self.STATE['x'], event.x), max(self.STATE['x'], event.x)
-            self.y1, self.y2 = min(self.STATE['y'], event.y), max(self.STATE['y'], event.y)
-            self.bboxList.append((self.x1, self.y1, self.x2, self.y2))
+            self.x1, x2 = min(self.STATE['x'], event.x), max(self.STATE['x'], event.x)
+            self.y1, y2 = min(self.STATE['y'], event.y), max(self.STATE['y'], event.y)
+            self.xx1 = int(float(self.x1) * self.width / self.canvas_w)
+            self.x2 = int(float(x2) * self.width / self.canvas_w)
+            self.yy1 = int(float(self.y1) * self.height / self.canvas_h)
+            self.y2 = int(float(y2) * self.height / self.canvas_h)
+            self.bboxList.append((self.xx1, self.yy1, self.x2, self.y2))
             self.bboxIdList.append(self.bboxId)
             self.bboxId = None
-            # self.listbox.insert(END, '(%d, %d) -> (%d, %d)' %(self.x1, self.y1, self.x2, self.y2))
-            # self.listbox.itemconfig(len(self.bboxIdList) - 1, fg = COLORS[(len(self.bboxIdList) - 1) % len(COLORS)])
         self.STATE['click'] = 1 - self.STATE['click']
 
 
     def mouseMove(self, event):
+        self.color_map = COLORS[len(self.bboxIdList) % len(COLORS)]
         self.label7.config(text = 'x: %.2f' % event.x)
         self.label8.config(text = 'y: %.2f' % event.y)
         if self.tkimg:
@@ -257,34 +260,43 @@ class LabelTool():
         if 1 == self.STATE['click']:
             if self.bboxId:
                 self.mainPanel.delete(self.bboxId)
-            self.bboxId = self.mainPanel.create_rectangle(self.STATE['x'], self.STATE['y'], event.x, event.y,
-                                                            width = 2, outline = COLORS[len(self.bboxList) % len(COLORS)])
+            self.bboxId = self.mainPanel.create_rectangle(self.STATE['x'], self.STATE['y'], event.x, event.y, width = 2, outline = self.color_map)
 
     def popupList(self, event):
         self.contextMenu.post(event.x_root, event.y_root)
 
     def clickMenu(self):
         self.class_name = self.Classes.get()
-        self.listbox.insert(END, '(%d, %d) -> (%d, %d) -> %s' % (self.x1, self.y1, self.x2, self.y2, self.class_name))
-        self.listbox.itemconfig(len(self.bboxIdList) - 1, fg=COLORS[(len(self.bboxIdList) - 1) % len(COLORS)])
-        classIdx = self.mainPanel.create_text(self.x1+5, self.y1+8, text = self.class_name, anchor = W, fill = COLORS[(len(self.bboxIdList) - 1) % len(COLORS)])
+        self.color_map = COLORS[(len(self.bboxIdList) - 1) % len(COLORS)]
+        self.listbox.insert(END, '(%d, %d) -> (%d, %d) -> %s' % (self.xx1, self.yy1, self.x2, self.y2, self.class_name))
+        self.listbox.itemconfig(len(self.bboxIdList) - 1, fg = self.color_map)
+        classIdx = self.mainPanel.create_text(self.x1+5, self.y1+8, text = self.class_name, anchor = W, fill = self.color_map)
         self.classes_name.append(self.class_name)
         self.classIdList.append(classIdx)
 
     def delete_line(self, event):
-        try:
-            self.mainPanel.delete(self.bboxId)
-            self.bboxId = None
-            self.STATE['click'] = 0
-        except:
-            pass
-
-    def cancelBBox(self, event):
-        if 1 == self.STATE['click']:
-            if self.bboxId:
+        if self.bboxId:
+            try:
                 self.mainPanel.delete(self.bboxId)
                 self.bboxId = None
                 self.STATE['click'] = 0
+            except:
+                pass
+        else:
+            try:
+                if len(self.bboxIdList) != len(self.classes_name):
+                    boxId = self.bboxIdList.pop()
+                    self.mainPanel.delete(boxId)
+                    self.bboxList.pop()
+            except:
+                pass
+
+    # def cancelBBox(self, event):
+    #     if 1 == self.STATE['click']:
+    #         if self.bboxId:
+    #             self.mainPanel.delete(self.bboxId)
+    #             self.bboxId = None
+    #             self.STATE['click'] = 0
 
     def delBBox(self):
         sel = self.listbox.curselection()
@@ -296,6 +308,7 @@ class LabelTool():
         self.bboxIdList.pop(idx)
         self.classIdList.pop(idx)
         self.bboxList.pop(idx)
+        self.classes_name.pop(idx)
         self.listbox.delete(idx)
 
     def clearBBox(self):
@@ -309,14 +322,14 @@ class LabelTool():
         self.classes_name = []
 
     def Delete_image(self, event):
-        imagepath = self.imageList[self.cur-1]
+        image_path = self.imageList[self.cur-1]
         if self.cur < self.total:
             self.cur += 1
             self.loadImage()
         else:
             print("Image NO. %d deleted" % self.cur)
             messagebox.showinfo('Information','\tCompleted!\n\nAll images have been labelled!')
-        os.remove(imagepath)
+        os.remove(image_path)
         self.del_num += 1
         print("Image NO. %d deleted \t%d images have been deleted." %(self.cur-1, self.del_num))
 
@@ -343,6 +356,82 @@ class LabelTool():
     #         self.cur = idx
     #         self.loadImage()
 
+def createElementNode(doc, tag, attr):
+    element_node = doc.createElement(tag)
+    text_node = doc.createTextNode(attr)
+    element_node.appendChild(text_node)
+    return element_node
+
+def createChildNode(doc, tag, attr, parent_node):
+    child_node = createElementNode(doc, tag, attr)
+    parent_node.appendChild(child_node)
+
+def createObjectNode(doc, classes_name, bbox):
+    object_node = doc.createElement('object')
+    for i in range(len(classes_name)):
+        class_name = classes_name[i]
+        boxes = bbox[i]
+        createChildNode(doc, 'name', class_name, object_node)
+        createChildNode(doc, 'pose', _POSE, object_node)
+        createChildNode(doc, 'truncated', _TRUNCATED, object_node)
+        createChildNode(doc, 'difficult', _DIFFICULT, object_node)
+
+        bndbox_node = doc.createElement('bndbox')
+        createChildNode(doc, 'xmin', str(boxes[0]), bndbox_node)
+        createChildNode(doc, 'ymin', str(boxes[1]), bndbox_node)
+        createChildNode(doc, 'xmax', str(boxes[2]), bndbox_node)
+        createChildNode(doc, 'ymax', str(boxes[3]), bndbox_node)
+
+        object_node.appendChild(bndbox_node)
+    return object_node
+
+def writeXMLFile(doc, filename):
+    tmpfile = open('tmp.xml', 'w')
+    doc.writexml(tmpfile, addindent = ' '*4, newl = '\n', encoding = 'utf-8')
+    tmpfile.close()
+
+    fin = open('tmp.xml')
+    fout = open(filename, 'w')
+    lines = fin.readlines()
+
+    for line in lines[1:]:
+        if line.split():
+            fout.writelines(line)
+    fin.close()
+    fout.close()
+    os.remove('tmp.xml')
+
+def createXML(image_name, shape, classes_name, bbox):
+    my_dom = xml.dom.getDOMImplementation()
+    doc = my_dom.createDocument(None, 'annotation', None)
+
+    root_node = doc.documentElement
+    createChildNode(doc, 'folder', 'HUST2018', root_node)
+    createChildNode(doc, 'filename', image_name, root_node)
+
+    source_node = doc.createElement('source')
+    createChildNode(doc, 'database', 'Detection', source_node)
+    createChildNode(doc, 'annotation', 'HUST2018', source_node)
+    createChildNode(doc, 'image', 'flickr', source_node)
+    createChildNode(doc, 'flickrid', 'NULL', source_node)
+    root_node.appendChild(source_node)
+
+    owner_node = doc.createElement('owner')
+    createChildNode(doc, 'flickr_url', '0', owner_node)
+    createChildNode(doc, 'name', '?', owner_node)
+    root_node.appendChild(owner_node)
+
+    size_node = doc.createElement('size')
+    createChildNode(doc, 'width', str(shape[0]), size_node)
+    createChildNode(doc, 'height', str(shape[1]), size_node)
+    createChildNode(doc, 'depth', str(shape[2]), size_node)
+    root_node.appendChild(size_node)
+
+    createChildNode(doc, 'segmented', _SEGMENTED, root_node)
+
+    object_node = createObjectNode(doc, classes_name, bbox)
+    root_node.appendChild(object_node)
+    return doc
 
 if __name__ == '__main__':
     root = Tk()
