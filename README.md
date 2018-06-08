@@ -10,7 +10,7 @@ The Label-Tool can label rectangle (two coordinates) and polygon (four coordinat
 ### Installation
 1. Clone Label-Tool repository
 	```Shell
-	$ git clone 
+	$ git clone https://github.com/leeyoshinari/Label-Tool
 	$ cd Label-Tool
 	```
 2. Run
