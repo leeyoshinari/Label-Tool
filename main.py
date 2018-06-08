@@ -3,7 +3,6 @@
 # Purpose:     Label object bboxes for ImageNet Detection data
 # Author:      HUST
 # Created:     27/07/2017
-#
 #-------------------------------------------------------------------------------
 from tkinter import messagebox, filedialog
 from tkinter import *
@@ -28,9 +27,6 @@ _TRUNCATED = '0'
 _DIFFICULT = '0'
 _SEGMENTED = '0'
 
-def event_handler(event):
-    print('s')
-
 class LabelTool:
     def __init__(self, master):
         self.parent = master
@@ -53,20 +49,20 @@ class LabelTool:
         self.image_name = ''    # The name of precessing image.
         self.label_filename = ''    # The name of .xml.
         self.label_filename1 = ''   # The name of .txt, it's used to check annotations.
-        self.tkimg = None
+        self.tkimg = None   # Image displayed on canvas.
         self.img = None
-        self.width = 0
-        self.height = 0
-        self.depth = 0
-        self.color_map = COLORS[0]
-        self.class_name = None
-        self.classes_name = []
-        self.bboxIdList = []
-        self.classIdList = []
-        self.bboxId = None
-        self.bboxList = []
-        self.hl = None
-        self.vl = None
+        self.width = 0     # The size of origin image.
+        self.height = 0    # The size of origin image.
+        self.depth = 0     # The size of origin image.
+        self.color_map = COLORS[0]   # The color of bounding boxes.
+        self.class_name = None     # The class name of right-click.
+        self.classes_name = []     # All classes of a image.
+        self.bboxIdList = []     # Save drawing handle.
+        self.classIdList = []    # Save text handle.
+        self.bboxId = None     # Drawing handle.
+        self.bboxList = []     # Save all bounding boxes.
+        self.hl = None      # Horizontal line.
+        self.vl = None      # Vertical line.
         self.x1 = 0
         self.y1 = 0
         self.xx1 = 0
@@ -84,47 +80,49 @@ class LabelTool:
         self.rad1 = Radiobutton(self.frame, text = 'line', variable = radio_var, value = 2, command = None)
         self.rad1.place(x = 180, y = 10, width = 80, height = 16)
 
-        self.label1 = Label(self.frame, text = 'Image Path:')
+        self.label1 = Label(self.frame, text = "Image Path:")
         self.label1.place(x = 10, y = 40, width = 71, height = 16)
         self.label2 = Entry(self.frame)
-        self.label2.place(x=90, y=40, width=255, height=20)
-        self.label3 = Label(self.frame, text = 'Image Size:')
+        self.label2.place(x = 90, y = 40, width = 255, height = 20)
+        self.label3 = Label(self.frame, text = "Image Size:")
         self.label3.place(x = 10, y = 70, width = 71, height = 16)
         self.label4 = Label(self.frame, bg='white')
-        self.label4.place(x=90, y=70, width=171, height=20)
-        self.label5 = Label(self.frame, text = 'Bounding Box:')
+        self.label4.place(x = 90, y = 70, width = 171, height = 16)
+        self.label5 = Label(self.frame, text = "Bounding Box:")
         self.label5.place(x = 3, y = 100, width = 101, height = 16)
-        self.label6 = Label(self.frame, text="Doing:     /    ")
+        self.label6 = Label(self.frame, text =  "Doing:     /    ")
         self.label6.place(x = 120, y = 100 , width = 150, height = 16)
-        self.label7 = Label(self.frame, bg = 'white', fg = 'red', anchor = W, text = 'x: ')
+        self.label7 = Label(self.frame, bg = 'white', fg = 'red', anchor = W, text = "x: ")
         self.label7.place(x = 270, y = 120, width = 75, height = 20)
-        self.label8 = Label(self.frame, bg='white', fg='red', anchor=W, text='y: ')
-        self.label8.place(x=270, y=145, width=75, height=20)
+        self.label8 = Label(self.frame, bg = 'white', fg = 'red', anchor = W, text = "y: ")
+        self.label8.place(x = 270, y = 145, width = 75, height = 20)
 
         self.button = Button(self.frame, text = "Load Image", state = 'disabled', command = self.Load_image)
-        self.button.place(x=270, y=70, width=75, height=20)
+        self.button.place(x = 270, y = 70, width = 75, height = 20)
         self.button.config(state = 'active')
-        self.button1 = Button(self.frame, text='Delete', state = 'disabled', command=self.delBBox)
+        self.button1 = Button(self.frame, text = "Delete", state = 'disabled', command = self.delBBox)
         self.button1.place(x = 270, y = 190, width = 75, height = 20)
-        self.button1.config(state='active')
-        self.button2 = Button(self.frame, text='ClearAll', state = 'disabled', command=self.clearBBox)
-        self.button2.place(x  =270, y = 220, width = 75, height = 20)
-        self.button2.config(state='active')
-        self.button3 = Button(self.frame, text='<< Prev', state = 'disabled', command=self.prevImage)
-        #self.button3.bind('<Up>', event_handler)
+        self.button1.config(state ='active')
+        self.button2 = Button(self.frame, text = "ClearAll", state = 'disabled', command = self.clearBBox)
+        self.button2.place(x = 270, y = 220, width = 75, height = 20)
+        self.button2.config(state ='active')
+        self.button3 = Button(self.frame, text = "<< Prev", state = 'disabled', command = self.prevImage)
+        self.button3.bind_all('w', self.prevImage)
+        self.button3.bind_all('a', self.prevImage)
         self.button3.place(x = 10, y = 250, width = 65, height = 20)
-        self.button3.config(state='active')
-        self.button4 = Button(self.frame, text='Next >>', state = 'disabled', command=self.nextImage)
-        self.button4.bind_all("s", event_handler)
-        self.button4.config(state='active')
+        self.button3.config(state ='active')
+        self.button4 = Button(self.frame, text = "Next >>", state = 'disabled', command = self.nextImage)
+        self.button4.bind_all("s", self.nextImage)
+        self.button4.bind_all("d", self.nextImage)
+        self.button4.config(state ='active')
         self.button4.place(x = 90, y = 250, width = 65, height = 20)
-        self.button5 = Button(self.frame, text="Delete Image", state = 'disabled', command=self.Delete_image)
+        self.button5 = Button(self.frame, text ="Delete Image", state = 'disabled', command = self.Delete_image)
         self.button5.place(x = 170, y = 250, width = 90, height = 20)
-        self.button6 = Button(self.frame, text="Help", command=None)
-        self.button6.place(x=275, y=250, width=65, height=20)
+        self.button6 = Button(self.frame, text = "Help", command = None)
+        self.button6.place(x = 275, y = 250, width = 65, height = 20)
 
         # main panel for labeling
-        self.canvas_w = self.w - 370
+        self.canvas_w = self.w - 370    # The size of canvas.
         self.canvas_h = self.h - 80
         self.mainPanel = Canvas(self.frame, bg = 'white')
         self.mainPanel.bind("<Button-1>", self.mouseClick)
@@ -136,18 +134,22 @@ class LabelTool:
         # showing bbox info & delete bbox
         self.listbox = Listbox(self.frame)
         self.listbox.place(x = 10, y = 120, width = 250, height = 120)
+        
+        # showing log
+        self.label9 = Label(self.frame, text = "Print Log:")
+        self.label9.place(x = 1, y = 280, width = 71, height = 16)
+        self.scr = Scrollbar(self.frame)
+        self.scr.pack(side = RIGHT, fill = Y)
+        self.messageList = Listbox(self.frame, yscrollcommand = self.scr.set)
+        self.messageList.place(x = 10, y = 300, width = 336, height = 300)
+        self.messageList.pack(side = LEFT)
+        self.scr['command'] = self.messageList.yview
 
+        # Right-click menu, display class name.
         self.contextMenu = Menu(self.frame)
         self.Classes = StringVar()
         for classes in CLASSES:
-            self.contextMenu.add_radiobutton(label = classes, variable = self.Classes, command = self.clickMenu)#variable = classes,
-
-        # self.tmpLabel = Label(self.frame, text="Go to Image No.")
-        # self.idxEntry = Entry(self.frame, width=1)
-        # self.goBtn = Button(self.frame, text='Go', command=self.gotoImage)
-
-        #self.frame.columnconfigure(1, weight = 1)
-        #self.frame.rowconfigure(2, weight = 1)
+            self.contextMenu.add_radiobutton(label = classes, variable = self.Classes, command = self.clickMenu)
 
     def Load_image(self):
         filename = filedialog.askdirectory()
@@ -159,7 +161,8 @@ class LabelTool:
         # default to the 1st image in the collection
         self.cur = 1
         self.total = len(self.imageList)
-        print('The number of images is %d ' % self.total)
+        # print('The number of images is %d ' % self.total)
+        self.messageList.insert(END, "The number of images is %d " % self.total)
 
         if not os.path.exists(self.outDir):
             os.mkdir(self.outDir)
@@ -228,7 +231,8 @@ class LabelTool:
                     f.write(' '.join(map(str, bbox)) + ' ' + self.classes_name[num] + '\n')
                     num += 1
 
-            print('Image No. %d saved' % self.cur)
+            # print('Image No. %d saved' % self.cur)
+            self.messageList.insert(END, "Image No. %d saved" % self.cur)
 
     def mouseClick(self, event):
         if self.STATE['click'] == 0:
@@ -275,6 +279,9 @@ class LabelTool:
         self.classIdList.append(classIdx)
 
     def delete_line(self, event):
+        # If a box is drawn wrong, clicking middle button to delete it.
+        # If 'self.bboxId' is true, it means that the box has not been drawn.
+        # If 'self.bboxId' is false, it means that the box has been drawn.
         if self.bboxId:
             try:
                 self.mainPanel.delete(self.bboxId)
@@ -299,27 +306,33 @@ class LabelTool:
     #             self.STATE['click'] = 0
 
     def delBBox(self):
-        sel = self.listbox.curselection()
-        if len(sel) != 1 :
-            return
-        idx = int(sel[0])
-        self.mainPanel.delete(self.bboxIdList[idx])
-        self.mainPanel.delete(self.classIdList[idx])
-        self.bboxIdList.pop(idx)
-        self.classIdList.pop(idx)
-        self.bboxList.pop(idx)
-        self.classes_name.pop(idx)
-        self.listbox.delete(idx)
-
-    def clearBBox(self):
-        for idx in range(len(self.bboxIdList)):
+        try:
+            sel = self.listbox.curselection()
+            if len(sel) != 1 :
+                return
+            idx = int(sel[0])
             self.mainPanel.delete(self.bboxIdList[idx])
             self.mainPanel.delete(self.classIdList[idx])
-        self.listbox.delete(0, len(self.bboxList))
-        self.bboxIdList = []
-        self.classIdList = []
-        self.bboxList = []
-        self.classes_name = []
+            self.bboxIdList.pop(idx)
+            self.classIdList.pop(idx)
+            self.bboxList.pop(idx)
+            self.classes_name.pop(idx)
+            self.listbox.delete(idx)
+        except:
+            pass
+
+    def clearBBox(self):
+        try:
+            for idx in range(len(self.bboxIdList)):
+                self.mainPanel.delete(self.bboxIdList[idx])
+                self.mainPanel.delete(self.classIdList[idx])
+            self.listbox.delete(0, len(self.bboxList))
+            self.bboxIdList = []
+            self.classIdList = []
+            self.bboxList = []
+            self.classes_name = []
+        except:
+            pass
 
     def Delete_image(self, event):
         image_path = self.imageList[self.cur-1]
@@ -327,27 +340,37 @@ class LabelTool:
             self.cur += 1
             self.loadImage()
         else:
-            print("Image NO. %d deleted" % self.cur)
+            # print("Image NO. %d deleted" % self.cur)
+            self.messageList.insert(END, "Image NO. %d deleted" % self.cur)
+            self.messageList.insert(END, "All images have been labelled!")
             messagebox.showinfo('Information','\tCompleted!\n\nAll images have been labelled!')
         os.remove(image_path)
         self.del_num += 1
-        print("Image NO. %d deleted \t%d images have been deleted." %(self.cur-1, self.del_num))
+        # print("Image NO. %d deleted \t%d images have been deleted." %(self.cur-1, self.del_num))
+        self.messageList.insert(END, "Image NO. %d deleted \t%d images have been deleted." %(self.cur-1, self.del_num))
 
     def prevImage(self, event = None):
-        self.saveImage()
-        self.classes_name = []
-        if self.cur > 1:
-            self.cur -= 1
-            self.loadImage()
+        try:
+            self.saveImage()
+            self.classes_name = []
+            if self.cur > 1:
+                self.cur -= 1
+                self.loadImage()
+        except:
+            pass
 
     def nextImage(self, event = None):
-        self.saveImage()
-        self.classes_name = []
-        if self.cur < self.total:
-            self.cur += 1
-            self.loadImage()
-        else:
-            messagebox.showinfo('Information','\tCompleted!\n\nAll images have been labelled!')
+        try:
+            self.saveImage()
+            self.classes_name = []
+            if self.cur < self.total:
+                self.cur += 1
+                self.loadImage()
+            else:
+                self.messageList.insert(END, "All images have been labelled!")
+                messagebox.showinfo('Information','\tCompleted!\n\nAll images have been labelled!')
+        except:
+            pass
 
     # def gotoImage(self):
     #     idx = int(self.idxEntry.get())
