@@ -74,7 +74,6 @@ class LabelTool:
         self.yy1 = 0
         self.y2 = 0
 
-        # ----------------- GUI stuff ---------------------
         # dir entry & load
         radio_var = IntVar()
         self.label = Label(self.frame, text = 'Label Type:')
