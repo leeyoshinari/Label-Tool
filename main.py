@@ -555,7 +555,8 @@ def Help():
          "If class name has been selected, you can click the bounding box that you want to delete in 'Bounding Box', then click 'Delete' " \
          "button. If you want to delete all bounding boxes, you can click 'ClearAll' button.\n\n"
     p8 = "\tIf you choose 'polygon', click the left mouse button four times to select four points, then you can see the polygon. And " \
-         "then click the right mouse button to select class name.\n"
+         "then click the right mouse button to select class name.\n" \
+         "\nNOTE: When you label polygon, you must click left-up, right-up, right-down, left-down of the polygon in order.\n\n"
     p9 = space + space + "4. If you label a image, click 'Next >>' button to next image, or you can press shortcut 's' or 'd' to next image. " \
                          "If you want to check previous image, you can click '<< Prev' button, or press shortcut 'w' or 'a'.\n"
     p10 = space + space + "5. If you think the image is not good, you can click 'Delete Image' button to delete image.\n"
@@ -563,8 +564,9 @@ def Help():
                           "label is also saved to '.txt' format, this is used to check annotation.\n"
     p12 = "\nNOTE: Image shows on the canvas, the image is forced to zoom to the canvas size, so the image may be distorted, but " \
           "this is no problem, the coordinates of the annotation are restored to the original image size.\n"
-    p13 = "\nNOTE: If you label your own data set, you need to modify 'CLASSES'."
-    log = p + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8 + p9 + p10 + p11 + p12 + p13
+    p13 = "\nNOTE: If you label your own data set, you need to modify 'CLASSES'.\n"
+    p14 = "\nNOTE: If you find a bug in using, you can submit it in the issue."
+    log = p + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8 + p9 + p10 + p11 + p12 + p13 + p14
     messagebox.showinfo('Help', log)
 
 if __name__ == '__main__':
